@@ -1,0 +1,7 @@
+.pyc
+.weights
+.h5
+.pkl
+logs/*
+
+
