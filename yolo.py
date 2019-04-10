@@ -101,47 +101,7 @@ class YoloLayer(Layer):
         iou_scores  = tf.truediv(intersect_areas, union_areas)
 
         best_ious   = tf.reduce_max(iou_scores, axis=4)        
-        conf_delta *= tf.expand_dims(tf.to_float(best_ious < self.ignore_thresh), 4)
-
-        """
-        Compute some online statistics
-        """            
-        true_xy = true_box_xy / grid_factor
-        true_wh = tf.exp(true_box_wh) * self.anchors / net_factor
-
-        true_wh_half = true_wh / 2.
-        true_mins    = true_xy - true_wh_half
-        true_maxes   = true_xy + true_wh_half
-
-        pred_xy = pred_box_xy / grid_factor
-        pred_wh = tf.exp(pred_box_wh) * self.anchors / net_factor 
-        
-        pred_wh_half = pred_wh / 2.
-        pred_mins    = pred_xy - pred_wh_half
-        pred_maxes   = pred_xy + pred_wh_half      
-
-        intersect_mins  = tf.maximum(pred_mins,  true_mins)
-        intersect_maxes = tf.minimum(pred_maxes, true_maxes)
-        intersect_wh    = tf.maximum(intersect_maxes - intersect_mins, 0.)
-        intersect_areas = intersect_wh[..., 0] * intersect_wh[..., 1]
-        
-        true_areas = true_wh[..., 0] * true_wh[..., 1]
-        pred_areas = pred_wh[..., 0] * pred_wh[..., 1]
-
-        union_areas = pred_areas + true_areas - intersect_areas
-        iou_scores  = tf.truediv(intersect_areas, union_areas)
-        iou_scores  = object_mask * tf.expand_dims(iou_scores, 4)
-        
-        count       = tf.reduce_sum(object_mask)
-        count_noobj = tf.reduce_sum(1 - object_mask)
-        detect_mask = tf.to_float((pred_box_conf*object_mask) >= 0.5)
-        class_mask  = tf.expand_dims(tf.to_float(tf.equal(tf.argmax(pred_box_class, -1), true_box_class)), 4)
-        recall50    = tf.reduce_sum(tf.to_float(iou_scores >= 0.5 ) * detect_mask  * class_mask) / (count + 1e-3)
-        recall75    = tf.reduce_sum(tf.to_float(iou_scores >= 0.75) * detect_mask  * class_mask) / (count + 1e-3)    
-        avg_iou     = tf.reduce_sum(iou_scores) / (count + 1e-3)
-        avg_obj     = tf.reduce_sum(pred_box_conf  * object_mask)  / (count + 1e-3)
-        avg_noobj   = tf.reduce_sum(pred_box_conf  * (1-object_mask))  / (count_noobj + 1e-3)
-        avg_cat     = tf.reduce_sum(object_mask * class_mask) / (count + 1e-3) 
+        conf_delta *= tf.expand_dims(tf.cast(best_ious < self.ignore_thresh, tf.float32), 4)
 
         """
         Warm-up training
@@ -175,19 +135,6 @@ class YoloLayer(Layer):
         loss_class = tf.reduce_sum(class_delta,               list(range(1,5)))
 
         loss = loss_xy + loss_wh + loss_conf + loss_class
-
-        loss = tf.Print(loss, [grid_h, avg_obj], message='avg_obj \t\t', summarize=1000)
-        loss = tf.Print(loss, [grid_h, avg_noobj], message='avg_noobj \t\t', summarize=1000)
-        loss = tf.Print(loss, [grid_h, avg_iou], message='avg_iou \t\t', summarize=1000)
-        loss = tf.Print(loss, [grid_h, avg_cat], message='avg_cat \t\t', summarize=1000)
-        loss = tf.Print(loss, [grid_h, recall50], message='recall50 \t', summarize=1000)
-        loss = tf.Print(loss, [grid_h, recall75], message='recall75 \t', summarize=1000)   
-        loss = tf.Print(loss, [grid_h, count], message='count \t', summarize=1000)     
-        loss = tf.Print(loss, [grid_h, tf.reduce_sum(loss_xy), 
-                                       tf.reduce_sum(loss_wh), 
-                                       tf.reduce_sum(loss_conf), 
-                                       tf.reduce_sum(loss_class)],  message='loss xy, wh, conf, class: \t',   summarize=1000)   
-
 
         return loss*self.grid_scale
 
