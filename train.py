@@ -75,8 +75,11 @@ def get_current_learning_rate(epoch):
 
     lrate = LEARNING_RATE
 
-    if epoch <= WARMUP_EPOCHS:
+    if epoch < WARMUP_EPOCHS:
         lrate = LEARNING_RATE * math.pow(epoch/WARMUP_EPOCHS, 4)
+        print('training warmup, uisng learning rate: {}'.format(lrate))
+    else:
+        print('current learning rate: {}'.format(lrate))
 
     return lrate
 
@@ -124,7 +127,6 @@ def create_model(
     anchors, 
     max_box_per_image, 
     max_grid, batch_size, 
-    warmup_batches, 
     ignore_thresh, 
     multi_gpu, 
     saved_weights_name, 
@@ -141,7 +143,6 @@ def create_model(
         max_box_per_image   = max_box_per_image, 
         max_grid            = max_grid, 
         batch_size          = batch_size, 
-        warmup_batches      = warmup_batches,
         ignore_thresh       = ignore_thresh,
         grid_scales         = grid_scales,
         obj_scale           = obj_scale,
@@ -228,7 +229,6 @@ def _main_(args):
     ###############################
     if os.path.exists(config['train']['saved_weights_name']): 
         config['train']['warmup_epochs'] = 0
-    warmup_batches = config['train']['warmup_epochs'] * (config['train']['train_times']*len(train_generator))   
 
     WARMUP_EPOCHS = config['train']['warmup_epochs']
     LEARNING_RATE = config['train']['learning_rate']
@@ -243,7 +243,6 @@ def _main_(args):
         max_box_per_image   = max_box_per_image, 
         max_grid            = [config['model']['max_input_size'], config['model']['max_input_size']], 
         batch_size          = config['train']['batch_size'], 
-        warmup_batches      = warmup_batches,
         ignore_thresh       = config['train']['ignore_thresh'],
         multi_gpu           = multi_gpu,
         saved_weights_name  = config['train']['saved_weights_name'],
@@ -258,7 +257,6 @@ def _main_(args):
     ###############################
     #   Kick off the training
     ###############################
-    print("0: set warmup to {}".format(WARMUP_EPOCHS))
     callbacks = create_callbacks(config['train']['saved_weights_name'], config['train']['tensorboard_dir'], infer_model)
 
     sess = K.backend.get_session()

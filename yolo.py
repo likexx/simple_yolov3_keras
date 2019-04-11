@@ -5,12 +5,11 @@ from tensorflow.keras.layers import Layer
 import tensorflow as tf
 
 class YoloLayer(Layer):
-    def __init__(self, anchors, max_grid, batch_size, warmup_batches, ignore_thresh, 
+    def __init__(self, anchors, max_grid, batch_size, ignore_thresh, 
                     grid_scale, obj_scale, noobj_scale, xywh_scale, class_scale, 
                     **kwargs):
         # make the model settings persistent
         self.ignore_thresh  = ignore_thresh
-        self.warmup_batches = warmup_batches
         self.anchors        = tf.constant(anchors, dtype='float', shape=[1,1,1,3,2])
         self.grid_scale     = grid_scale
         self.obj_scale      = obj_scale
@@ -104,19 +103,6 @@ class YoloLayer(Layer):
         conf_delta *= tf.expand_dims(tf.cast(best_ious < self.ignore_thresh, tf.float32), 4)
 
         """
-        Warm-up training
-        """
-        # batch_seen = tf.assign_add(batch_seen, 1.)
-        
-        # true_box_xy, true_box_wh, xywh_mask = tf.cond(tf.less(batch_seen, self.warmup_batches+1), 
-        #                       lambda: [true_box_xy + (0.5 + self.cell_grid[:,:grid_h,:grid_w,:,:]) * (1-object_mask), 
-        #                                true_box_wh + tf.zeros_like(true_box_wh) * (1-object_mask), 
-        #                                tf.ones_like(object_mask)],
-        #                       lambda: [true_box_xy, 
-        #                                true_box_wh,
-        #                                object_mask])
-
-        """
         Compare each true box to all anchor boxes
         """      
         wh_scale = tf.exp(true_box_wh) * self.anchors / net_factor
@@ -168,7 +154,6 @@ def create_yolov3_model(
     max_box_per_image, 
     max_grid, 
     batch_size, 
-    warmup_batches,
     ignore_thresh,
     grid_scales,
     obj_scale,
@@ -244,7 +229,6 @@ def create_yolov3_model(
     loss_yolo_1 = YoloLayer(anchors[12:], 
                             [1*num for num in max_grid], 
                             batch_size, 
-                            warmup_batches, 
                             ignore_thresh, 
                             grid_scales[0],
                             obj_scale,
@@ -270,7 +254,6 @@ def create_yolov3_model(
     loss_yolo_2 = YoloLayer(anchors[6:12], 
                             [2*num for num in max_grid], 
                             batch_size, 
-                            warmup_batches, 
                             ignore_thresh, 
                             grid_scales[1],
                             obj_scale,
@@ -294,7 +277,6 @@ def create_yolov3_model(
     loss_yolo_3 = YoloLayer(anchors[:6], 
                             [4*num for num in max_grid], 
                             batch_size, 
-                            warmup_batches, 
                             ignore_thresh, 
                             grid_scales[2],
                             obj_scale,
