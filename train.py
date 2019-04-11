@@ -118,9 +118,11 @@ def create_callbacks(saved_weights_name, tensorboard_logs, model_to_save):
         write_images           = True,
     )    
 
+    #TODO: customize LearningRateScheduler so it's compatiable with reduce_on_plateau
     lrate = LearningRateScheduler(get_current_learning_rate)
+    return [lrate, early_stop, checkpoint, tensorboard]
 
-    return [lrate, early_stop, checkpoint, reduce_on_plateau, tensorboard]
+    # return [lrate, early_stop, checkpoint, reduce_on_plateau, tensorboard]
 
 def create_model(
     nb_class, 

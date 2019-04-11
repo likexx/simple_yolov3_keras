@@ -8,15 +8,19 @@ from voc import parse_voc_annotation
 from yolo import create_yolov3_model
 from generator import BatchGenerator
 from utils.utils import normalize, evaluate
-from keras.callbacks import EarlyStopping, ModelCheckpoint
-from keras.optimizers import Adam
-from keras.models import load_model
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.models import load_model
 
 def _main_(args):
     config_path = args.conf
 
     with open(config_path) as config_buffer:    
         config = json.loads(config_buffer.read())
+
+    anchors = []
+    with open(config['model']['anchors']) as anchors_file:    
+        anchors = json.loads(anchors_file.read())
 
     ###############################
     #   Create the validation generator
@@ -33,7 +37,7 @@ def _main_(args):
    
     valid_generator = BatchGenerator(
         instances           = valid_ints, 
-        anchors             = config['model']['anchors'],   
+        anchors             = anchors,   
         labels              = labels,        
         downsample          = 32, # ratio between network input's size and network output's size, 32 for YOLOv3
         max_box_per_image   = 0,

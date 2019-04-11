@@ -186,7 +186,6 @@ def decode_netout(netout, anchors, obj_thresh, net_h, net_w):
         for b in range(nb_box):
             # 4th element is objectness score
             objectness = netout[row, col, b, 4]
-            
             if(objectness <= obj_thresh): continue
             
             # first 4 elements are x, y, w, and h
@@ -249,7 +248,7 @@ def get_yolo_boxes(model, images, net_h, net_w, anchors, obj_thresh, nms_thresh)
 
         # decode the output of the network
         for j in range(len(yolos)):
-            yolo_anchors = anchors[(2-j)*6:(3-j)*6] # config['model']['anchors']
+            yolo_anchors = anchors[(2-j)*6:(3-j)*6]
             boxes += decode_netout(yolos[j], yolo_anchors, obj_thresh, net_h, net_w)
 
         # correct the sizes of the bounding boxes
