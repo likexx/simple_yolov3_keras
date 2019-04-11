@@ -15,6 +15,11 @@ from callbacks import CustomModelCheckpoint, CustomTensorBoard
 import tensorflow as tf
 import tensorflow.keras as K
 from tensorflow.keras.models import load_model
+from tensorflow.keras.callbacks import LearningRateScheduler
+import math
+
+LEARNING_RATE = 0.0
+WARMUP_EPOCHS = 0
 
 def create_training_instances(
     train_annot_folder,
@@ -62,9 +67,22 @@ def create_training_instances(
 
     return train_ints, valid_ints, sorted(labels), max_box_per_image
 
+def get_current_learning_rate(epoch):
+    # https://github.com/pjreddie/darknet/blob/tjluyao-master/src/network.c
+    # if (batch_num < net.burn_in) return net.learning_rate * pow((float)batch_num / net.burn_in, net.power);
+    global WARMUP_EPOCHS
+    global LEARNING_RATE
+
+    lrate = LEARNING_RATE
+
+    if epoch <= WARMUP_EPOCHS:
+        lrate = LEARNING_RATE * math.pow(epoch/WARMUP_EPOCHS, 4)
+
+    return lrate
+
 def create_callbacks(saved_weights_name, tensorboard_logs, model_to_save):
     makedirs(tensorboard_logs)
-    
+
     early_stop = EarlyStopping(
         monitor     = 'loss', 
         min_delta   = 0.01, 
@@ -96,7 +114,10 @@ def create_callbacks(saved_weights_name, tensorboard_logs, model_to_save):
         write_graph            = True,
         write_images           = True,
     )    
-    return [early_stop, checkpoint, reduce_on_plateau, tensorboard]
+
+    lrate = LearningRateScheduler(get_current_learning_rate)
+
+    return [lrate, early_stop, checkpoint, reduce_on_plateau, tensorboard]
 
 def create_model(
     nb_class, 
@@ -127,7 +148,7 @@ def create_model(
         noobj_scale         = noobj_scale,
         xywh_scale          = xywh_scale,
         class_scale         = class_scale
-    )  
+    ) 
 
     # load the pretrained weight if exists, otherwise load the backend weight only
     if os.path.exists(saved_weights_name): 
@@ -138,12 +159,15 @@ def create_model(
 
     train_model = template_model      
 
-    optimizer = Adam(lr=lr, clipnorm=0.001)
+    optimizer = Adam(lr=0.0, clipnorm=0.001)
     train_model.compile(loss=dummy_loss, optimizer=optimizer)             
 
     return train_model, infer_model
 
 def _main_(args):
+    global WARMUP_EPOCHS
+    global LEARNING_RATE
+
     config_path = args.conf
 
     with open(config_path) as config_buffer:    
@@ -206,6 +230,9 @@ def _main_(args):
         config['train']['warmup_epochs'] = 0
     warmup_batches = config['train']['warmup_epochs'] * (config['train']['train_times']*len(train_generator))   
 
+    WARMUP_EPOCHS = config['train']['warmup_epochs']
+    LEARNING_RATE = config['train']['learning_rate']
+
     # os.environ['CUDA_VISIBLE_DEVICES'] = config['train']['gpus']
     # multi_gpu = len(config['train']['gpus'].split(','))
     multi_gpu = 0
@@ -231,6 +258,7 @@ def _main_(args):
     ###############################
     #   Kick off the training
     ###############################
+    print("0: set warmup to {}".format(WARMUP_EPOCHS))
     callbacks = create_callbacks(config['train']['saved_weights_name'], config['train']['tensorboard_dir'], infer_model)
 
     sess = K.backend.get_session()

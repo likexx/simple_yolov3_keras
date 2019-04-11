@@ -40,7 +40,7 @@ class YoloLayer(Layer):
         object_mask     = tf.expand_dims(y_true[..., 4], 4)
 
         # the variable to keep track of number of batches processed
-        batch_seen = tf.Variable(0.)        
+        # batch_seen = tf.Variable(0.)        
 
         # compute grid factor and net factor
         grid_h      = tf.shape(y_true)[1]
@@ -106,15 +106,15 @@ class YoloLayer(Layer):
         """
         Warm-up training
         """
-        batch_seen = tf.assign_add(batch_seen, 1.)
+        # batch_seen = tf.assign_add(batch_seen, 1.)
         
-        true_box_xy, true_box_wh, xywh_mask = tf.cond(tf.less(batch_seen, self.warmup_batches+1), 
-                              lambda: [true_box_xy + (0.5 + self.cell_grid[:,:grid_h,:grid_w,:,:]) * (1-object_mask), 
-                                       true_box_wh + tf.zeros_like(true_box_wh) * (1-object_mask), 
-                                       tf.ones_like(object_mask)],
-                              lambda: [true_box_xy, 
-                                       true_box_wh,
-                                       object_mask])
+        # true_box_xy, true_box_wh, xywh_mask = tf.cond(tf.less(batch_seen, self.warmup_batches+1), 
+        #                       lambda: [true_box_xy + (0.5 + self.cell_grid[:,:grid_h,:grid_w,:,:]) * (1-object_mask), 
+        #                                true_box_wh + tf.zeros_like(true_box_wh) * (1-object_mask), 
+        #                                tf.ones_like(object_mask)],
+        #                       lambda: [true_box_xy, 
+        #                                true_box_wh,
+        #                                object_mask])
 
         """
         Compare each true box to all anchor boxes
@@ -122,8 +122,8 @@ class YoloLayer(Layer):
         wh_scale = tf.exp(true_box_wh) * self.anchors / net_factor
         wh_scale = tf.expand_dims(2 - wh_scale[..., 0] * wh_scale[..., 1], axis=4) # the smaller the box, the bigger the scale
 
-        xy_delta    = xywh_mask   * (pred_box_xy-true_box_xy) * wh_scale * self.xywh_scale
-        wh_delta    = xywh_mask   * (pred_box_wh-true_box_wh) * wh_scale * self.xywh_scale
+        xy_delta    = object_mask   * (pred_box_xy-true_box_xy) * wh_scale * self.xywh_scale
+        wh_delta    = object_mask   * (pred_box_wh-true_box_wh) * wh_scale * self.xywh_scale
         conf_delta  = object_mask * (pred_box_conf-true_box_conf) * self.obj_scale + (1-object_mask) * conf_delta * self.noobj_scale
         class_delta = object_mask * \
                       tf.expand_dims(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=true_box_class, logits=pred_box_class), 4) * \
